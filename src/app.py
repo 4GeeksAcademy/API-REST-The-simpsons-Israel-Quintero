@@ -8,7 +8,8 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, User, Character
+from sqlalchemy import select
 #from models import Person
 
 app = Flask(__name__)
@@ -45,6 +46,93 @@ def handle_hello():
     }
 
     return jsonify(response_body), 200
+
+@app.route('/create/user', methods=['POST'])
+def create_user():
+    data=request.get_json()
+    user_name=data.get('user_name')
+    email=data.get('email')
+    password=data.get('password')
+
+    if not user_name or not email or not password:
+        return jsonify({'msg':'Please fill all the blanks to complete the signup'}),400
+    
+    existing_user= db.session.execute(select(User).where(User.user_name,User.email == user_name, email)).scalar.one_or_none()
+
+    if existing_user:
+        return jsonify({'msg':'A user with this username or email already exists'}),401
+    
+    new_user=User(
+        user_name=user_name,
+        email=email,
+        password=password
+    )
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'msg':'the user signup has been successfully completed'}),200
+
+
+
+
+
+@app.route('/login',methods=['POST'])
+def user_login():
+    data=request.get_json()
+    email=data.get('email')
+    password=data.get('password')
+
+    if not email or not password:
+        return jsonify({'msg':'User not authorized'}),400
+    
+    existing_user= db.session.execute(select(User).where(User.email ==  email)).scalar.one_or_none()
+
+    if not existing_user:
+        return jsonify({'msg':'email or password are required'}),401
+    
+    else:
+        return jsonify({'msg':'login has been successfull'}),200
+    
+
+
+@app.route('/characters/create',methods=['POST'])
+def characters_create():
+    data=request.get_json()
+    user_id=data.get('id')
+    existing_user=db.session.get(User,int(user_id))
+
+    if not existing_user:
+        return jsonify({'msg':'user not authorized'}),400
+    
+    new_character=Character(
+        name=data.get('name'),
+        quote=data.get('quote'),
+        image=data.get('image'),
+        location=data.get('location')
+
+    )
+
+    db.session.add(new_character)
+    db.session.commit()
+    return jsonify({'msg':'character succesfully created'}),200
+
+
+
+
+@app.route('/characters/list',methods=['GET'])
+def character_list():
+
+    data=request.get_json()
+    if not data:
+        return jsonify({'msg':'unable request'}),400
+    
+
+    characters=db.session.execute(select(Character)).scalars().all()
+
+    return jsonify(characters.serialize()),200
+    
+   
 
 
 
