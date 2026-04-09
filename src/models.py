@@ -12,7 +12,12 @@ favorite_table = Table(
     Column("character_id", ForeignKey("character.id"), primary_key= True )
 )
 
-
+favorite_location=Table(
+    "favorite_locations",
+    db.Model.metadata,
+    Column("user_id",ForeignKey("user.id"),primary_key=True),
+    Column("location_id", ForeignKey("location.id"),primary_key=True)
+)
 
 class User(db.Model):
     __tablename__= "user"
@@ -20,19 +25,25 @@ class User(db.Model):
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(nullable=False)
     user_name: Mapped[str] = mapped_column(String(120),nullable=True)
+
+    
     favorites: Mapped[list["Character"]] = relationship(
         "Character",
         secondary= favorite_table,
         back_populates= "favorited_by"
     )
 
+    favorite_locations:Mapped[list["Location"]]= relationship(
+        "Location",secondary=favorite_location,
+        back_populates="favorited_by")
 
     def serialize(self):
         return {
             "id": self.id,
             "email": self.email,
-            "name":self.name,
-            "favorites": [character.serialize() for character in self.favorites]
+            "name":self.user_name,
+            "favorites": [character.serialize() for character in self.favorites],
+            "favorite_locations": [location.serialize() for location in self.favorite_locations]
 
             # do not serialize the password, its a security breach
         }
@@ -50,7 +61,7 @@ class Character(db.Model):
         secondary= favorite_table,
         back_populates= "favorites"
     )
-    origin_location:Mapped[list["Location"]]= relationship(
+    origin_location:Mapped["Location"]= relationship(
         "Location",
         back_populates="residents"
     )
@@ -63,7 +74,7 @@ class Character(db.Model):
             "name": self.name,
             "quote": self.quote,
             "image": self.image,
-            "favorited_by":[user.serialize() for user in self.favorited_by],
+            # "favorited_by":[user.serialize() for user in self.favorited_by],
             "location_city":self.location_city
 
 
@@ -76,6 +87,8 @@ class Location(db.Model):
     description:Mapped[str]= mapped_column(String(500),nullable=True)
     image: Mapped[str]= mapped_column(String(500),nullable=True)
     
+    favorited_by:Mapped[list["User"]] = relationship("User",
+    secondary=favorite_location, back_populates="favorite_locations")
 
     residents: Mapped[list["Character"]] = relationship(
         "Character",
